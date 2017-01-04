@@ -142,7 +142,12 @@ macro_rules! from_node_index {
 from_node_index!(u8);
 from_node_index!(u16);
 from_node_index!(u32);
-from_node_index!(usize);
+
+impl<Ix: IndexType> From<NodeIndex<Ix>> for usize {
+    fn from(n: NodeIndex<Ix>) -> Self {
+        n.index()
+    }
+}
 
 impl<Ix: fmt::Debug> fmt::Debug for NodeIndex<Ix> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

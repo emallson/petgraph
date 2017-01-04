@@ -12,47 +12,17 @@ use std::mem::size_of;
 use std::ops::{Index, IndexMut};
 use std::slice;
 
-use {
-    Graph,
-    EdgeType,
-    Directed,
-    Undirected,
-    Direction,
-    Incoming,
-    Outgoing,
-};
+use {Graph, EdgeType, Directed, Undirected, Direction, Incoming, Outgoing};
 
-use iter_format::{
-    IterFormatExt,
-    NoPretty,
-    DebugMap,
-};
+use iter_format::{IterFormatExt, NoPretty, DebugMap};
 
-use super::{
-    Edge,
-    index_twice,
-    Node,
-    DIRECTIONS,
-    Pair,
-};
+use super::{Edge, index_twice, Node, DIRECTIONS, Pair};
 use IntoWeightedEdge;
-use visit::{
-    EdgeRef,
-    IntoEdges,
-    IntoEdgeReferences,
-    NodeIndexable,
-};
+use visit::{EdgeRef, IntoEdges, IntoEdgeReferences, NodeIndexable};
 
 // reexport those things that are shared with Graph
 #[doc(no_inline)]
-pub use graph::{
-    NodeIndex,
-    EdgeIndex,
-    IndexType,
-    DefaultIx,
-    node_index,
-    edge_index,
-};
+pub use graph::{NodeIndex, EdgeIndex, IndexType, DefaultIx, node_index, edge_index};
 
 /// `StableGraph<N, E, Ty, Ix>` is a graph datastructure using an adjacency
 /// list representation.
@@ -89,8 +59,7 @@ pub use graph::{
 ///
 /// Depends on crate feature `stable_graph` (default). *This is a new feature in
 /// petgraph.  You can contribute to help it achieve parity with Graph.*
-pub struct StableGraph<N, E, Ty = Directed, Ix = DefaultIx>
-{
+pub struct StableGraph<N, E, Ty = Directed, Ix = DefaultIx> {
     g: Graph<Option<N>, Option<E>, Ty, Ix>,
     node_count: usize,
     edge_count: usize,
@@ -114,34 +83,45 @@ impl<N, E, Ty, Ix> fmt::Debug for StableGraph<N, E, Ty, Ix>
     where N: fmt::Debug,
           E: fmt::Debug,
           Ty: EdgeType,
-          Ix: IndexType,
+          Ix: IndexType
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let etype = if self.is_directed() { "Directed" } else { "Undirected" };
+        let etype = if self.is_directed() {
+            "Directed"
+        } else {
+            "Undirected"
+        };
         let mut fmt_struct = f.debug_struct("StableGraph");
         fmt_struct.field("Ty", &etype);
-        fmt_struct.field("edges", &self.g.edges.iter()
-            .filter(|e| e.weight.is_some())
-            .map(|e| NoPretty((e.source().index(), e.target().index())))
-            .format(", "));
+        fmt_struct.field("edges",
+                         &self.g
+                             .edges
+                             .iter()
+                             .filter(|e| e.weight.is_some())
+                             .map(|e| NoPretty((e.source().index(), e.target().index())))
+                             .format(", "));
         // skip weights if they are ZST!
         if size_of::<N>() != 0 {
             fmt_struct.field("node weights",
-            &DebugMap(||
-                self.g.nodes.iter()
+                             &DebugMap(|| {
+                self.g
+                    .nodes
+                    .iter()
                     .map(|n| n.weight.as_ref())
                     .enumerate()
                     .filter_map(|(i, wo)| wo.map(move |w| (i, w)))
-                   ));
+            }));
         }
         if size_of::<E>() != 0 {
             fmt_struct.field("edge weights",
-            &DebugMap(||
-                self.g.edges.iter()
+                             &DebugMap(|| {
+                self.g
+                    .edges
+                    .iter()
                     .map(|n| n.weight.as_ref())
                     .enumerate()
                     .filter_map(|(i, wo)| wo.map(move |w| (i, w)))
-                   ));
+            }));
         }
         fmt_struct.field("free_node", &self.free_node);
         fmt_struct.field("free_edge", &self.free_edge);
@@ -165,7 +145,7 @@ impl<N, E> StableGraph<N, E, Directed> {
 
 impl<N, E, Ty, Ix> StableGraph<N, E, Ty, Ix>
     where Ty: EdgeType,
-          Ix: IndexType,
+          Ix: IndexType
 {
     /// Create a new `StableGraph` with estimated capacity.
     pub fn with_capacity(nodes: usize, edges: usize) -> Self {
@@ -261,7 +241,7 @@ impl<N, E, Ty, Ix> StableGraph<N, E, Ty, Ix>
             loop {
                 let next = self.g.nodes[a.index()].next[k];
                 if next == EdgeIndex::end() {
-                    break
+                    break;
                 }
                 let ret = self.remove_edge(next);
                 debug_assert!(ret.is_some());
@@ -270,8 +250,8 @@ impl<N, E, Ty, Ix> StableGraph<N, E, Ty, Ix>
         }
 
         let node_slot = &mut self.g.nodes[a.index()];
-        //let node_weight = replace(&mut self.g.nodes[a.index()].weight, Entry::Empty(self.free_node));
-        //self.g.nodes[a.index()].next = [EdgeIndex::end(), EdgeIndex::end()];
+        // let node_weight = replace(&mut self.g.nodes[a.index()].weight, Entry::Empty(self.free_node));
+        // self.g.nodes[a.index()].next = [EdgeIndex::end(), EdgeIndex::end()];
         node_slot.next = [self.free_node._into_edge(), EdgeIndex::end()];
         self.free_node = a;
         self.node_count -= 1;
@@ -295,9 +275,7 @@ impl<N, E, Ty, Ix> StableGraph<N, E, Ty, Ix>
     /// type.
     ///
     /// **Note:** `StableGraph` allows adding parallel (“duplicate”) edges.
-    pub fn add_edge(&mut self, a: NodeIndex<Ix>, b: NodeIndex<Ix>, weight: E)
-        -> EdgeIndex<Ix>
-    {
+    pub fn add_edge(&mut self, a: NodeIndex<Ix>, b: NodeIndex<Ix>, weight: E) -> EdgeIndex<Ix> {
 
         if self.free_edge != EdgeIndex::end() {
             let edge_idx = self.free_edge;
@@ -337,9 +315,7 @@ impl<N, E, Ty, Ix> StableGraph<N, E, Ty, Ix>
     /// connected to `a` (and `b`, if the graph edges are undirected).
     ///
     /// **Panics** if any of the nodes don't exist.
-    pub fn update_edge(&mut self, a: NodeIndex<Ix>, b: NodeIndex<Ix>, weight: E)
-        -> EdgeIndex<Ix>
-    {
+    pub fn update_edge(&mut self, a: NodeIndex<Ix>, b: NodeIndex<Ix>, weight: E) -> EdgeIndex<Ix> {
         if let Some(ix) = self.find_edge(a, b) {
             self[ix] = weight;
             return ix;
@@ -400,9 +376,7 @@ impl<N, E, Ty, Ix> StableGraph<N, E, Ty, Ix>
 
     /// Return an iterator over the node indices of the graph
     pub fn node_indices(&self) -> NodeIndices<N, Ix> {
-        NodeIndices {
-            iter: self.g.nodes.iter().enumerate(),
-        }
+        NodeIndices { iter: self.g.nodes.iter().enumerate() }
     }
 
     /// Access the weight for edge `e`.
@@ -426,9 +400,7 @@ impl<N, E, Ty, Ix> StableGraph<N, E, Ty, Ix>
     }
 
     /// Access the source and target nodes for `e`.
-    pub fn edge_endpoints(&self, e: EdgeIndex<Ix>)
-        -> Option<(NodeIndex<Ix>, NodeIndex<Ix>)>
-    {
+    pub fn edge_endpoints(&self, e: EdgeIndex<Ix>) -> Option<(NodeIndex<Ix>, NodeIndex<Ix>)> {
         match self.g.edges.get(e.index()) {
             Some(ed) if ed.weight.is_some() => Some((ed.source(), ed.target())),
             _otherwise => None,
@@ -439,8 +411,7 @@ impl<N, E, Ty, Ix> StableGraph<N, E, Ty, Ix>
     ///
     /// Computes in **O(e')** time, where **e'** is the number of edges
     /// connected to `a` (and `b`, if the graph edges are undirected).
-    pub fn find_edge(&self, a: NodeIndex<Ix>, b: NodeIndex<Ix>) -> Option<EdgeIndex<Ix>>
-    {
+    pub fn find_edge(&self, a: NodeIndex<Ix>, b: NodeIndex<Ix>) -> Option<EdgeIndex<Ix>> {
         let index = self.g.find_edge(a, b);
         if let Some(i) = index {
             debug_assert!(self.g.edges[i.index()].weight.is_some());
@@ -479,9 +450,7 @@ impl<N, E, Ty, Ix> StableGraph<N, E, Ty, Ix>
     /// not borrow from the graph.
     ///
     /// [1]: struct.Neighbors.html#method.detach
-    pub fn neighbors_directed(&self, a: NodeIndex<Ix>, dir: Direction)
-        -> Neighbors<E, Ix>
-    {
+    pub fn neighbors_directed(&self, a: NodeIndex<Ix>, dir: Direction) -> Neighbors<E, Ix> {
         let mut iter = self.neighbors_undirected(a);
         if self.is_directed() {
             let k = dir.index();
@@ -504,15 +473,14 @@ impl<N, E, Ty, Ix> StableGraph<N, E, Ty, Ix>
     /// not borrow from the graph.
     ///
     /// [1]: struct.Neighbors.html#method.detach
-    pub fn neighbors_undirected(&self, a: NodeIndex<Ix>) -> Neighbors<E, Ix>
-    {
+    pub fn neighbors_undirected(&self, a: NodeIndex<Ix>) -> Neighbors<E, Ix> {
         Neighbors {
             skip_start: a,
             edges: &self.g.edges,
             next: match self.g.nodes.get(a.index()) {
                 None => [EdgeIndex::end(), EdgeIndex::end()],
                 Some(n) => n.next,
-            }
+            },
         }
     }
 
@@ -535,8 +503,7 @@ impl<N, E, Ty, Ix> StableGraph<N, E, Ty, Ix>
     ///
     /// Produces an empty iterator if the node `a` doesn't exist.<br>
     /// Iterator element type is `EdgeReference<E, Ix>`.
-    pub fn edges_directed(&self, a: NodeIndex<Ix>, dir: Direction) -> Edges<E, Ty, Ix>
-    {
+    pub fn edges_directed(&self, a: NodeIndex<Ix>, dir: Direction) -> Edges<E, Ty, Ix> {
         let mut iter = self.edges_undirected(a);
         if self.is_directed() {
             iter.direction = Some(dir);
@@ -587,7 +554,7 @@ impl<N, E, Ty, Ix> StableGraph<N, E, Ty, Ix>
         where I: IntoIterator,
               I::Item: IntoWeightedEdge<E>,
               <I::Item as IntoWeightedEdge<E>>::NodeId: Into<NodeIndex<Ix>>,
-              N: Default,
+              N: Default
     {
         let mut g = Self::with_capacity(0, 0);
         g.extend_with_edges(iterable);
@@ -605,7 +572,7 @@ impl<N, E, Ty, Ix> StableGraph<N, E, Ty, Ix>
         where I: IntoIterator,
               I::Item: IntoWeightedEdge<E>,
               <I::Item as IntoWeightedEdge<E>>::NodeId: Into<NodeIndex<Ix>>,
-              N: Default,
+              N: Default
     {
         let iter = iterable.into_iter();
 
@@ -619,12 +586,12 @@ impl<N, E, Ty, Ix> StableGraph<N, E, Ty, Ix>
             self.add_edge(source, target, weight);
         }
     }
-
 }
 
 /// The resulting cloned graph has the same graph indices as `self`.
 impl<N, E, Ty, Ix: IndexType> Clone for StableGraph<N, E, Ty, Ix>
-    where N: Clone, E: Clone,
+    where N: Clone,
+          E: Clone
 {
     fn clone(&self) -> Self {
         StableGraph {
@@ -648,9 +615,9 @@ impl<N, E, Ty, Ix: IndexType> Clone for StableGraph<N, E, Ty, Ix>
 /// Index the `StableGraph` by `NodeIndex` to access node weights.
 ///
 /// **Panics** if the node doesn't exist.
-impl<N, E, Ty, Ix> Index<NodeIndex<Ix>> for StableGraph<N, E, Ty, Ix> where
-    Ty: EdgeType,
-    Ix: IndexType,
+impl<N, E, Ty, Ix> Index<NodeIndex<Ix>> for StableGraph<N, E, Ty, Ix>
+    where Ty: EdgeType,
+          Ix: IndexType
 {
     type Output = N;
     fn index(&self, index: NodeIndex<Ix>) -> &N {
@@ -661,22 +628,21 @@ impl<N, E, Ty, Ix> Index<NodeIndex<Ix>> for StableGraph<N, E, Ty, Ix> where
 /// Index the `StableGraph` by `NodeIndex` to access node weights.
 ///
 /// **Panics** if the node doesn't exist.
-impl<N, E, Ty, Ix> IndexMut<NodeIndex<Ix>> for StableGraph<N, E, Ty, Ix> where
-    Ty: EdgeType,
-    Ix: IndexType,
+impl<N, E, Ty, Ix> IndexMut<NodeIndex<Ix>> for StableGraph<N, E, Ty, Ix>
+    where Ty: EdgeType,
+          Ix: IndexType
 {
     fn index_mut(&mut self, index: NodeIndex<Ix>) -> &mut N {
         self.node_weight_mut(index).unwrap()
     }
-
 }
 
 /// Index the `StableGraph` by `EdgeIndex` to access edge weights.
 ///
 /// **Panics** if the edge doesn't exist.
-impl<N, E, Ty, Ix> Index<EdgeIndex<Ix>> for StableGraph<N, E, Ty, Ix> where
-    Ty: EdgeType,
-    Ix: IndexType,
+impl<N, E, Ty, Ix> Index<EdgeIndex<Ix>> for StableGraph<N, E, Ty, Ix>
+    where Ty: EdgeType,
+          Ix: IndexType
 {
     type Output = E;
     fn index(&self, index: EdgeIndex<Ix>) -> &E {
@@ -687,9 +653,9 @@ impl<N, E, Ty, Ix> Index<EdgeIndex<Ix>> for StableGraph<N, E, Ty, Ix> where
 /// Index the `StableGraph` by `EdgeIndex` to access edge weights.
 ///
 /// **Panics** if the edge doesn't exist.
-impl<N, E, Ty, Ix> IndexMut<EdgeIndex<Ix>> for StableGraph<N, E, Ty, Ix> where
-    Ty: EdgeType,
-    Ix: IndexType,
+impl<N, E, Ty, Ix> IndexMut<EdgeIndex<Ix>> for StableGraph<N, E, Ty, Ix>
+    where Ty: EdgeType,
+          Ix: IndexType
 {
     fn index_mut(&mut self, index: EdgeIndex<Ix>) -> &mut E {
         self.edge_weight_mut(index).unwrap()
@@ -699,9 +665,11 @@ impl<N, E, Ty, Ix> IndexMut<EdgeIndex<Ix>> for StableGraph<N, E, Ty, Ix> where
 /// Create a new empty `StableGraph`.
 impl<N, E, Ty, Ix> Default for StableGraph<N, E, Ty, Ix>
     where Ty: EdgeType,
-          Ix: IndexType,
+          Ix: IndexType
 {
-    fn default() -> Self { Self::with_capacity(0, 0) }
+    fn default() -> Self {
+        Self::with_capacity(0, 0)
+    }
 }
 
 /// Reference to a `StableGraph` edge.
@@ -718,10 +686,10 @@ impl<'a, E, Ix: IndexType> Clone for EdgeReference<'a, E, Ix> {
     }
 }
 
-impl<'a, E, Ix: IndexType> Copy for EdgeReference<'a, E, Ix> { }
+impl<'a, E, Ix: IndexType> Copy for EdgeReference<'a, E, Ix> {}
 
 impl<'a, E, Ix: IndexType> PartialEq for EdgeReference<'a, E, Ix>
-    where E: PartialEq,
+    where E: PartialEq
 {
     fn eq(&self, rhs: &Self) -> bool {
         self.index == rhs.index && self.weight == rhs.weight
@@ -729,31 +697,41 @@ impl<'a, E, Ix: IndexType> PartialEq for EdgeReference<'a, E, Ix>
 }
 
 impl<'a, Ix, E> EdgeReference<'a, E, Ix>
-    where Ix: IndexType,
+    where Ix: IndexType
 {
     /// Access the edge’s weight.
     ///
     /// **NOTE** that this method offers a longer lifetime
     /// than the trait (unfortunately they don't match yet).
-    pub fn weight(&self) -> &'a E { self.weight }
+    pub fn weight(&self) -> &'a E {
+        self.weight
+    }
 }
 
 impl<'a, Ix, E> EdgeRef for EdgeReference<'a, E, Ix>
-    where Ix: IndexType,
+    where Ix: IndexType
 {
     type NodeId = NodeIndex<Ix>;
     type EdgeId = EdgeIndex<Ix>;
     type Weight = E;
 
-    fn source(&self) -> Self::NodeId { self.node[0] }
-    fn target(&self) -> Self::NodeId { self.node[1] }
-    fn weight(&self) -> &E { self.weight }
-    fn id(&self) -> Self::EdgeId { self.index }
+    fn source(&self) -> Self::NodeId {
+        self.node[0]
+    }
+    fn target(&self) -> Self::NodeId {
+        self.node[1]
+    }
+    fn weight(&self) -> &E {
+        self.weight
+    }
+    fn id(&self) -> Self::EdgeId {
+        self.index
+    }
 }
 
 impl<'a, N, E, Ty, Ix> IntoEdges for &'a StableGraph<N, E, Ty, Ix>
     where Ty: EdgeType,
-          Ix: IndexType,
+          Ix: IndexType
 {
     type Edges = Edges<'a, E, Ty, Ix>;
     fn edges(self, a: Self::NodeId) -> Self::Edges {
@@ -766,7 +744,7 @@ impl<'a, N, E, Ty, Ix> IntoEdges for &'a StableGraph<N, E, Ty, Ix>
 /// Iterator over the edges of from or to a node
 pub struct Edges<'a, E: 'a, Ty, Ix: 'a = DefaultIx>
     where Ty: EdgeType,
-          Ix: IndexType,
+          Ix: IndexType
 {
     /// starting node to skip over
     skip_start: NodeIndex<Ix>,
@@ -785,7 +763,7 @@ pub struct Edges<'a, E: 'a, Ty, Ix: 'a = DefaultIx>
 
 impl<'a, E, Ty, Ix> Iterator for Edges<'a, E, Ty, Ix>
     where Ty: EdgeType,
-          Ix: IndexType,
+          Ix: IndexType
 {
     type Item = EdgeReference<'a, E, Ix>;
 
@@ -839,7 +817,7 @@ fn swap_pair<T>(mut x: [T; 2]) -> [T; 2] {
 
 impl<'a, N: 'a, E: 'a, Ty, Ix> IntoEdgeReferences for &'a StableGraph<N, E, Ty, Ix>
     where Ty: EdgeType,
-          Ix: IndexType,
+          Ix: IndexType
 {
     type EdgeRef = EdgeReference<'a, E, Ix>;
     type EdgeReferences = EdgeReferences<'a, E, Ix>;
@@ -848,11 +826,8 @@ impl<'a, N: 'a, E: 'a, Ty, Ix> IntoEdgeReferences for &'a StableGraph<N, E, Ty, 
     ///
     /// Iterator element type is `EdgeReference<E, Ix>`.
     fn edge_references(self) -> Self::EdgeReferences {
-        EdgeReferences {
-            iter: self.g.edges.iter().enumerate()
-        }
+        EdgeReferences { iter: self.g.edges.iter().enumerate() }
     }
-
 }
 
 /// Iterator over all edges of a graph.
@@ -866,14 +841,16 @@ impl<'a, E, Ix> Iterator for EdgeReferences<'a, E, Ix>
     type Item = EdgeReference<'a, E, Ix>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        (&mut self.iter).filter_map(|(i, edge)|
-            edge.weight.as_ref().map(move |weight| {
-                EdgeReference {
-                    index: edge_index(i),
-                    node: edge.node,
-                    weight: weight,
-                }
-            }))
+        (&mut self.iter)
+            .filter_map(|(i, edge)| {
+                edge.weight.as_ref().map(move |weight| {
+                    EdgeReference {
+                        index: edge_index(i),
+                        node: edge.node,
+                        weight: weight,
+                    }
+                })
+            })
             .next()
     }
 }
@@ -882,8 +859,7 @@ impl<'a, E, Ix> Iterator for EdgeReferences<'a, E, Ix>
 /// Iterator over the neighbors of a node.
 ///
 /// Iterator element type is `NodeIndex`.
-pub struct Neighbors<'a, E: 'a, Ix: 'a = DefaultIx>
-{
+pub struct Neighbors<'a, E: 'a, Ix: 'a = DefaultIx> {
     /// starting node to skip over
     skip_start: NodeIndex<Ix>,
     edges: &'a [Edge<Option<E>, Ix>],
@@ -891,7 +867,7 @@ pub struct Neighbors<'a, E: 'a, Ix: 'a = DefaultIx>
 }
 
 impl<'a, E, Ix> Neighbors<'a, E, Ix>
-    where Ix: IndexType,
+    where Ix: IndexType
 {
     /// Return a “walker” object that can be used to step through the
     /// neighbors and edges from the origin node.
@@ -902,14 +878,14 @@ impl<'a, E, Ix> Neighbors<'a, E, Ix>
         WalkNeighbors {
             inner: super::WalkNeighbors {
                 skip_start: self.skip_start,
-                next: self.next
+                next: self.next,
             },
         }
     }
 }
 
-impl<'a, E, Ix> Iterator for Neighbors<'a, E, Ix> where
-    Ix: IndexType,
+impl<'a, E, Ix> Iterator for Neighbors<'a, E, Ix>
+    where Ix: IndexType
 {
     type Item = NodeIndex<Ix>;
 
@@ -989,20 +965,21 @@ impl<Ix: IndexType> WalkNeighbors<Ix> {
     /// where the `WalkNeighbors` value was created.
     /// For an `Outgoing` walk, the target nodes,
     /// for an `Incoming` walk, the source nodes of the edge.
-    pub fn next<N, E, Ty: EdgeType>(&mut self, g: &StableGraph<N, E, Ty, Ix>)
-        -> Option<(EdgeIndex<Ix>, NodeIndex<Ix>)> {
+    pub fn next<N, E, Ty: EdgeType>(&mut self,
+                                    g: &StableGraph<N, E, Ty, Ix>)
+                                    -> Option<(EdgeIndex<Ix>, NodeIndex<Ix>)> {
         self.inner.next(&g.g)
     }
 
-    pub fn next_node<N, E, Ty: EdgeType>(&mut self, g: &StableGraph<N, E, Ty, Ix>)
-        -> Option<NodeIndex<Ix>>
-    {
+    pub fn next_node<N, E, Ty: EdgeType>(&mut self,
+                                         g: &StableGraph<N, E, Ty, Ix>)
+                                         -> Option<NodeIndex<Ix>> {
         self.next(g).map(|t| t.1)
     }
 
-    pub fn next_edge<N, E, Ty: EdgeType>(&mut self, g: &StableGraph<N, E, Ty, Ix>)
-        -> Option<EdgeIndex<Ix>>
-    {
+    pub fn next_edge<N, E, Ty: EdgeType>(&mut self,
+                                         g: &StableGraph<N, E, Ty, Ix>)
+                                         -> Option<EdgeIndex<Ix>> {
         self.next(g).map(|t| t.0)
     }
 }
@@ -1016,34 +993,48 @@ impl<'a, N, Ix: IndexType> Iterator for NodeIndices<'a, N, Ix> {
     type Item = NodeIndex<Ix>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.by_ref().filter_map(|(i, node)| {
-            if node.weight.is_some() {
-                Some(node_index(i))
-            } else { None }
-        }).next()
+        self.iter
+            .by_ref()
+            .filter_map(|(i, node)| {
+                if node.weight.is_some() {
+                    Some(node_index(i))
+                } else {
+                    None
+                }
+            })
+            .next()
     }
 }
 
 impl<'a, N, Ix: IndexType> DoubleEndedIterator for NodeIndices<'a, N, Ix> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        self.iter.by_ref().filter_map(|(i, node)| {
-            if node.weight.is_some() {
-                Some(node_index(i))
-            } else { None }
-        }).next_back()
+        self.iter
+            .by_ref()
+            .filter_map(|(i, node)| {
+                if node.weight.is_some() {
+                    Some(node_index(i))
+                } else {
+                    None
+                }
+            })
+            .next_back()
     }
 }
 
 impl<N, E, Ty, Ix> NodeIndexable for StableGraph<N, E, Ty, Ix>
     where Ty: EdgeType,
-          Ix: IndexType,
+          Ix: IndexType
 {
     /// Return an upper bound of the node indices in the graph
     fn node_bound(&self) -> usize {
         self.g.nodes.iter().rposition(|elt| elt.weight.is_some()).unwrap_or(0) + 1
     }
-    fn to_index(&self, ix: NodeIndex<Ix>) -> usize { ix.index() }
-    fn from_index(&self, ix: usize) -> Self::NodeId { NodeIndex::new(ix) }
+    fn to_index(&self, ix: NodeIndex<Ix>) -> usize {
+        ix.index()
+    }
+    fn from_index(&self, ix: usize) -> Self::NodeId {
+        NodeIndex::new(ix)
+    }
 }
 
 

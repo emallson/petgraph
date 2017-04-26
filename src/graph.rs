@@ -127,6 +127,12 @@ impl<Ix: IndexType> From<Ix> for NodeIndex<Ix> {
     }
 }
 
+impl From<usize> for NodeIndex {
+    fn from(ix: usize) -> Self {
+        NodeIndex(ix as u32)
+    }
+}
+
 macro_rules! from_node_index {
     ($t:ty) => {
         impl From<NodeIndex<$t>> for $t {
